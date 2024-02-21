@@ -10,6 +10,7 @@ extern "C"
 {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_system.h"
 #include "esp_log.h"
 #include "driver/uart.h"
@@ -49,17 +50,28 @@ const char *appKey = "DE5BDD7FD069E275915D859BAA293B29";
 #define TTN_PIN_DIO0 26
 #define TTN_PIN_DIO1 35
 
+#define QUEUE_LENGTH 5
+#define ITEM_SIZE sizeof(int[4])
+
+QueueHandle_t xQueue = NULL;
+
 static TheThingsNetwork ttn;
 
 const unsigned TX_INTERVAL = 30;
-static uint8_t msgData[] = "Hello, world";
+// static uint8_t msgData[] = "Hello, world";
 
 void sendMessages(void *pvParameter)
 {
+    uint8_t itemToSend[4];
     while (1)
     {
+        if (xQueueReceive(xQueue, &itemToSend, portMAX_DELAY) == pdPASS)
+        {
+            // Successfully received an item from the queue
+            printf("Received array: [%d, %d, %d, %d]\n", itemToSend[0], itemToSend[1], itemToSend[2], itemToSend[3]);
+        }
         printf("Sending message...\n");
-        TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
+        TTNResponseCode res = ttn.transmitMessage(itemToSend, sizeof(itemToSend));
         printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 
         vTaskDelay(TX_INTERVAL * pdMS_TO_TICKS(1000));
@@ -90,38 +102,40 @@ void init(void)
     uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
 
-int sendData(const char *logName, const char *data)
-{
-    const int len = strlen(data);
-    const int txBytes = uart_write_bytes(UART_NUM_1, data, len);
-    ESP_LOGI(logName, "Wrote %d bytes", txBytes);
-    return txBytes;
-}
-
-static void tx_task(void *arg)
-{
-    static const char *TX_TASK_TAG = "TX_TASK";
-    esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
-    while (1)
-    {
-        sendData(TX_TASK_TAG, "Hello world");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-    }
-}
-
 static void rx_task(void *arg)
 {
+    static const int WATT_INDEX = 78;
     static const char *RX_TASK_TAG = "RX_TASK";
+    const TickType_t xMaxBlockTime = pdMS_TO_TICKS(1000);
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t *data = (uint8_t *)malloc(RX_BUF_SIZE + 1);
+
+    uint8_t dataToSend[4] = {0, 0, 0, 0};
     while (1)
     {
         const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
         if (rxBytes > 0)
         {
             data[rxBytes] = 0;
-            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
-            ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+            // ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            // ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[53]);
+            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[54]);
+            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[55]);
+            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[56]);
+            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[57]);
+            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[58]);
+            dataToSend[0] = data[55];
+            dataToSend[1] = data[56];
+            dataToSend[2] = data[57];
+            dataToSend[3] = data[58];
+
+            printf("Sending array: [%d, %d, %d, %d]\n", dataToSend[0], dataToSend[1], dataToSend[2], dataToSend[3]);
+
+            if (xQueueSend(xQueue, &dataToSend, xMaxBlockTime) != pdPASS)
+            {
+                ESP_LOGE(RX_TASK_TAG, "Could not send to the queue");
+            }
         }
     }
     free(data);
@@ -148,6 +162,14 @@ void app_main(void)
     err = spi_bus_initialize(TTN_SPI_HOST, &spi_bus_config, TTN_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);
 
+    xQueue = xQueueCreate(QUEUE_LENGTH, ITEM_SIZE);
+
+    if (xQueue == NULL)
+    {
+        printf("Error creating the queue\n");
+        return;
+    }
+
     // Configure the SX127x pins
     ttn.configurePins(TTN_SPI_HOST, TTN_PIN_NSS, TTN_PIN_RXTX, TTN_PIN_RST, TTN_PIN_DIO0, TTN_PIN_DIO1);
 
@@ -172,6 +194,6 @@ void app_main(void)
     {
         printf("Join failed. Goodbye\n");
     }
-
+    printf("Starting the tasks\n");
     xTaskCreate(rx_task, "uart_rx_task", 1024 * 2, NULL, configMAX_PRIORITIES, NULL);
 }
