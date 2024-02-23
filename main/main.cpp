@@ -53,6 +53,8 @@ const char *appKey = "DE5BDD7FD069E275915D859BAA293B29";
 #define QUEUE_LENGTH 5
 #define ITEM_SIZE sizeof(int[4])
 
+#define PACKAGE_SIZE 581
+
 QueueHandle_t xQueue = NULL;
 
 static TheThingsNetwork ttn;
@@ -114,11 +116,23 @@ static void rx_task(void *arg)
     while (1)
     {
         const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
+
+
+        if (rxBytes == -1) {
+            ESP_LOGE(RX_TASK_TAG, "Error reading from UART");
+            continue;
+        }
+
+        if (rxBytes != PACKAGE_SIZE) {
+            ESP_LOGE(RX_TASK_TAG, "Received package size is not correct: %d", rxBytes);
+            continue;
+        }
+
         if (rxBytes > 0)
         {
             data[rxBytes] = 0;
-            // ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
-            // ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[53]);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[54]);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[55]);
@@ -140,6 +154,7 @@ static void rx_task(void *arg)
     }
     free(data);
 }
+
 
 extern "C" void app_main(void);
 void app_main(void)
