@@ -50,7 +50,8 @@ const char *appKey = "DE5BDD7FD069E275915D859BAA293B29";
 #define TTN_PIN_DIO0 26
 #define TTN_PIN_DIO1 35
 
-#define QUEUE_LENGTH 5
+#define INTERVAL_TO_SEND 30
+#define QUEUE_LENGTH INTERVAL_TO_SEND + 2
 #define ITEM_SIZE sizeof(int[4])
 
 #define PACKAGE_SIZE 581
@@ -65,17 +66,39 @@ const unsigned TX_INTERVAL = 30;
 void sendMessages(void *pvParameter)
 {
     uint8_t itemToSend[4];
+    uint32_t average = 0;
+    
     while (1)
     {
-        if (xQueueReceive(xQueue, &itemToSend, portMAX_DELAY) == pdPASS)
+        // check the queue size queue
+        if (uxQueueMessagesWaiting(xQueue) >= INTERVAL_TO_SEND)
         {
-            // Successfully received an item from the queue
-            printf("Received array: [%d, %d, %d, %d]\n", itemToSend[0], itemToSend[1], itemToSend[2], itemToSend[3]);
-        }
-        printf("Sending message...\n");
-        TTNResponseCode res = ttn.transmitMessage(itemToSend, sizeof(itemToSend));
-        printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
+            // Get the next INTERVAL_TO_SEND items from the queue
 
+            for (int i = 0; i < INTERVAL_TO_SEND; i++)
+            {
+                if (xQueueReceive(xQueue, &itemToSend, portMAX_DELAY) == pdPASS) {
+                    // convert the 4 bytes to a int and add it to the average
+                    average += (itemToSend[0] << 24) | (itemToSend[1] << 16) | (itemToSend[2] << 8) | itemToSend[3];
+                }
+            }
+
+            float newAverage = average / INTERVAL_TO_SEND;
+
+            // convert the new average to a 4 byte array
+            average = (int)newAverage;
+            
+            printf("Average: %lu\n", average);
+            itemToSend[0] = (average >> 24) & 0xFF;
+            itemToSend[1] = (average >> 16) & 0xFF;
+            itemToSend[2] = (average >> 8) & 0xFF;
+            itemToSend[3] = average & 0xFF;
+
+            printf("Sending message...\n");
+            TTNResponseCode res = ttn.transmitMessage(itemToSend, sizeof(itemToSend));
+            printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
+
+        }
         vTaskDelay(TX_INTERVAL * pdMS_TO_TICKS(1000));
     }
 }
@@ -102,11 +125,15 @@ void init(void)
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
     uart_param_config(UART_NUM_1, &uart_config);
     uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    
+    // Fix so this works with the inverter
+    // uart_set_line_inverse(UART_NUM_1, UART_SIGNAL_RXD_INV);
 }
+
 
 static void rx_task(void *arg)
 {
-    static const int WATT_INDEX = 78;
+    // static const int WATT_INDEX = 78;
     static const char *RX_TASK_TAG = "RX_TASK";
     const TickType_t xMaxBlockTime = pdMS_TO_TICKS(1000);
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
@@ -117,16 +144,17 @@ static void rx_task(void *arg)
     {
         const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
 
-
-        if (rxBytes == -1) {
+        if (rxBytes == -1)
+        {
             ESP_LOGE(RX_TASK_TAG, "Error reading from UART");
             continue;
         }
 
-        if (rxBytes != PACKAGE_SIZE) {
-            ESP_LOGE(RX_TASK_TAG, "Received package size is not correct: %d", rxBytes);
-            continue;
-        }
+        // if (rxBytes != PACKAGE_SIZE)
+        // {
+        //     ESP_LOGE(RX_TASK_TAG, "Received package size is not correct: %d", rxBytes);
+        //     continue;
+        // }
 
         if (rxBytes > 0)
         {
@@ -154,7 +182,6 @@ static void rx_task(void *arg)
     }
     free(data);
 }
-
 
 extern "C" void app_main(void);
 void app_main(void)
