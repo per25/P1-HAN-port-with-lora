@@ -53,34 +53,37 @@ const char *appKey = "CE03DB00D327F40F148E8D07FFC4CA0D";
 #define TTN_PIN_DIO1 35
 
 #define INTERVAL_TO_SEND 30
-#define QUEUE_LENGTH INTERVAL_TO_SEND + 2
+#define DISPLAY_QUEUE_LENGTH 4
+#define LORA_QUEUE_LENGTH INTERVAL_TO_SEND + 2
 #define ITEM_SIZE sizeof(int[4])
 
 #define PACKAGE_SIZE 581
 
-QueueHandle_t xQueue = NULL;
+QueueHandle_t loraQueue = NULL;
+QueueHandle_t displayQueue = NULL;
 
 static TheThingsNetwork ttn;
 
 const unsigned TX_INTERVAL = 30;
-// static uint8_t msgData[] = "Hello, world";
-static char *text ="OLED STARTED";
+
+static char *text = "OLED STARTED";
 
 void sendMessages(void *pvParameter)
 {
     uint8_t itemToSend[4];
     uint32_t average = 0;
-    
+
     while (1)
     {
         // check the queue size queue
-        if (uxQueueMessagesWaiting(xQueue) >= INTERVAL_TO_SEND)
+        if (uxQueueMessagesWaiting(loraQueue) >= INTERVAL_TO_SEND)
         {
             // Get the next INTERVAL_TO_SEND items from the queue
 
             for (int i = 0; i < INTERVAL_TO_SEND; i++)
             {
-                if (xQueueReceive(xQueue, &itemToSend, portMAX_DELAY) == pdPASS) {
+                if (xQueueReceive(loraQueue, &itemToSend, portMAX_DELAY) == pdPASS)
+                {
                     // convert the 4 bytes to a int and add it to the average
                     average += (itemToSend[0] << 24) | (itemToSend[1] << 16) | (itemToSend[2] << 8) | itemToSend[3];
                 }
@@ -90,7 +93,7 @@ void sendMessages(void *pvParameter)
 
             // convert the new average to a 4 byte array
             average = (int)newAverage;
-            
+
             printf("Average: %lu\n", average);
             itemToSend[0] = (average >> 24) & 0xFF;
             itemToSend[1] = (average >> 16) & 0xFF;
@@ -100,7 +103,6 @@ void sendMessages(void *pvParameter)
             printf("Sending message...\n");
             TTNResponseCode res = ttn.transmitMessage(itemToSend, sizeof(itemToSend));
             printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
-
         }
         vTaskDelay(TX_INTERVAL * pdMS_TO_TICKS(1000));
     }
@@ -128,11 +130,10 @@ void init(void)
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
     uart_param_config(UART_NUM_1, &uart_config);
     uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    
+
     // Fix so this works with the inverter
     // uart_set_line_inverse(UART_NUM_1, UART_SIGNAL_RXD_INV);
 }
-
 
 static void rx_task(void *arg)
 {
@@ -177,7 +178,12 @@ static void rx_task(void *arg)
 
             printf("Sending array: [%d, %d, %d, %d]\n", dataToSend[0], dataToSend[1], dataToSend[2], dataToSend[3]);
 
-            if (xQueueSend(xQueue, &dataToSend, xMaxBlockTime) != pdPASS)
+            if (xQueueSend(loraQueue, &dataToSend, xMaxBlockTime) != pdPASS)
+            {
+                ESP_LOGE(RX_TASK_TAG, "Could not send to the queue");
+            }
+
+            if (xQueueSend(displayQueue, &dataToSend, xMaxBlockTime) != pdPASS)
             {
                 ESP_LOGE(RX_TASK_TAG, "Could not send to the queue");
             }
@@ -188,13 +194,37 @@ static void rx_task(void *arg)
 
 void oled_task(void *pvParameter)
 {
-    while(1){
+    while (1)
+    {
 
-        display_oled(const_cast<char*>(text));
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
-       
+        if (uxQueueMessagesWaiting(displayQueue) > 0)
+        {
+            // get the message from the queue
+
+            uint8_t values[4];
+
+            if (xQueueReceive(displayQueue, &values, portMAX_DELAY) == pdPASS)
+            {
+                int wattValue = (values[0] << 24) | (values[1] << 16) | (values[2] << 8) | values[3];
+
+                printf("Watt value: %d\n", wattValue);
+
+                // Buffer size is increased to accommodate the integer value and potential text.
+                // Adjust the buffer size according to your expected maximum integer length.
+                char buffer[64]; // Ensure this is large enough to hold the combined text and number
+
+                // Format the new string with the wattValue included
+                sprintf(buffer, "Watt + %d", wattValue);
+                
+                // Display the formatted string
+                display_oled(buffer);
+            }
+
+            vTaskDelay(5000 / portTICK_PERIOD_MS);
+        }
     }
 }
+
 
 extern "C" void app_main(void);
 void app_main(void)
@@ -217,9 +247,10 @@ void app_main(void)
     err = spi_bus_initialize(TTN_SPI_HOST, &spi_bus_config, TTN_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);
 
-    xQueue = xQueueCreate(QUEUE_LENGTH, ITEM_SIZE);
+    loraQueue = xQueueCreate(LORA_QUEUE_LENGTH, ITEM_SIZE);
+    displayQueue = xQueueCreate(DISPLAY_QUEUE_LENGTH, ITEM_SIZE);
 
-    if (xQueue == NULL)
+    if (loraQueue == NULL)
     {
         printf("Error creating the queue\n");
         return;
@@ -239,16 +270,15 @@ void app_main(void)
     //    ttn.setMaxTxPower(14);
     init();
     oled_init();
-    
+
     xTaskCreate(oled_task, "oled_task", 1024 * 2, NULL, 5, NULL);
-    
+
     printf("Joining...\n");
     if (ttn.join())
     {
         printf("Joined.\n");
         xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void *)0, 3, nullptr);
         text = "Connected to TTN...";
-        
     }
     else
     {
@@ -256,5 +286,4 @@ void app_main(void)
     }
     printf("Starting the rx tasks\n");
     xTaskCreate(rx_task, "uart_rx_task", 1024 * 2, NULL, configMAX_PRIORITIES, NULL);
-    
 }
