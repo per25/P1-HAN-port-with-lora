@@ -214,15 +214,17 @@ void oled_task(void *pvParameter)
                 char buffer[64]; // Ensure this is large enough to hold the combined text and number
 
                 // Format the new string with the wattValue included
-                sprintf(buffer, "Watt + %d", wattValue);
+                sprintf(buffer, "Watt : %d", wattValue);
                 
                 // Display the formatted string
                 display_oled(buffer);
             }
 
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
+            
         }
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
+    
 }
 
 
