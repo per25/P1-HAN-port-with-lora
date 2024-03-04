@@ -16,6 +16,8 @@ extern "C"
 #include "driver/uart.h"
 #include "string.h"
 #include "driver/gpio.h"
+
+#include "oled.h"
 }
 
 #include "freertos/FreeRTOS.h"
@@ -29,14 +31,14 @@ extern "C"
 static const int RX_BUF_SIZE = 1024;
 
 #define TXD_PIN (GPIO_NUM_4)
-#define RXD_PIN (GPIO_NUM_16)
+#define RXD_PIN (GPIO_NUM_13)
 
 // AppEUI (sometimes called JoinEUI)
 const char *appEui = "0000000000000000";
 // DevEUI
-const char *devEui = "70B3D57ED0064BB4";
+const char *devEui = "70B3D57ED0064BB3";
 // AppKey
-const char *appKey = "DE5BDD7FD069E275915D859BAA293B29";
+const char *appKey = "CE03DB00D327F40F148E8D07FFC4CA0D";
 
 // Pins and other resources
 #define TTN_SPI_HOST SPI2_HOST
@@ -62,6 +64,7 @@ static TheThingsNetwork ttn;
 
 const unsigned TX_INTERVAL = 30;
 // static uint8_t msgData[] = "Hello, world";
+static char *text ="OLED STARTED";
 
 void sendMessages(void *pvParameter)
 {
@@ -183,6 +186,16 @@ static void rx_task(void *arg)
     free(data);
 }
 
+void oled_task(void *pvParameter)
+{
+    while(1){
+
+        display_oled(const_cast<char*>(text));
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+       
+    }
+}
+
 extern "C" void app_main(void);
 void app_main(void)
 {
@@ -225,17 +238,23 @@ void app_main(void)
     //    ttn.setDataRate(kTTNDataRate_US915_SF7);
     //    ttn.setMaxTxPower(14);
     init();
-
+    oled_init();
+    
+    xTaskCreate(oled_task, "oled_task", 1024 * 2, NULL, 5, NULL);
+    
     printf("Joining...\n");
     if (ttn.join())
     {
         printf("Joined.\n");
         xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void *)0, 3, nullptr);
+        text = "Connected to TTN...";
+        
     }
     else
     {
         printf("Join failed. Goodbye\n");
     }
-    printf("Starting the tasks\n");
+    printf("Starting the rx tasks\n");
     xTaskCreate(rx_task, "uart_rx_task", 1024 * 2, NULL, configMAX_PRIORITIES, NULL);
+    
 }
