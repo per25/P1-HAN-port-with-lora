@@ -52,7 +52,7 @@ const char *appKey = "CE03DB00D327F40F148E8D07FFC4CA0D";
 #define TTN_PIN_DIO0 26
 #define TTN_PIN_DIO1 35
 
-#define INTERVAL_TO_SEND 30
+#define INTERVAL_TO_SEND 6 // 30
 #define DISPLAY_QUEUE_LENGTH 4
 #define LORA_QUEUE_LENGTH INTERVAL_TO_SEND + 2
 #define ITEM_SIZE sizeof(int[4])
@@ -214,7 +214,7 @@ void oled_task(void *pvParameter)
                 char buffer[64]; // Ensure this is large enough to hold the combined text and number
 
                 // Format the new string with the wattValue included
-                sprintf(buffer, "Watt : %d", wattValue);
+                snprintf(buffer, "Watt : %d", wattValue);
                 
                 // Display the formatted string
                 display_oled(buffer);
