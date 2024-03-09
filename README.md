@@ -23,6 +23,8 @@ transmitted using LoRaWAN to TTN and then to datacake.
 
 Heltec ESP32 LoRa is a microcontroller board based on the ESP32, with built-in LoRa and 0.96 inch OLED Display. It is a perfect solution for IoT low power consumption and long range.
 
+To understand the data from the meter, check this: [Meter data: content of the data](https://www.kode24.no/guider/smart-meter-part-1-getting-the-meter-data/71287300). This explains the data, which is needed to understand what content of the data to read. In this project we read how much Watt's are used in real-time.
+
 ## Components of the project
 
 ### Hardware components
@@ -34,12 +36,11 @@ Heltec ESP32 LoRa is a microcontroller board based on the ESP32, with built-in L
 
 ### Software components
 - Espressif ESP32 Development Framework: install ESP-IDF through here, [ESP-IDF for ESP32](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html)
-- ESP-IDF Extension in Visual Studio Code
-- ESP-IDF has many diffrent project examples, one of them is the `UART_RX_TXtask` example. Which uses freertos to create a task that reads from the UART and writes to the UART. This project uses the RX part of that.
-- ESP-IDF: Also has a project for the Oled display, this is the `oleddisplay` project which is also used and implemented in this project.
+- ESP-IDF Extension in Visual Studio Code, ESP-IDF has many example projects.
+- ESP-IDF One of the example projects is the `UART_RX_TXtask`. Which uses freertos to create a task that reads from the UART and writes to the UART. This project uses the RX part of that.
+- ESP-IDF: Also has a project for the Oled display, this is the `i2c_oled` project which is also used and implemented in this project.
 
-- LoraWan: Device library for ESP-IDF with SX127X Lora chips: [ttn-esp32](https://github.com/manuelbl/ttn-esp32) This library enables the use of LoraWAN which is need for data-transmission.
-
-- Drivers: Might be needed to connect device to computer in Visual Studio code(test without drivers first), [Link](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads)
+- LoraWan: Device library for ESP-IDF with SX127X Lora chips: [ttn-esp32](https://github.com/manuelbl/ttn-esp32) This library enables the use of LoraWAN which is needed for data-transmission.
+- Drivers: Might be needed to connect device to computer in Visual Studio code(test without drivers first), [Drivers](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads)
 
 ## How to run the project, nessacy installations
