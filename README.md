@@ -14,14 +14,26 @@ These DIY methods vary, from transmitting data over Wi-Fi to integrating
 with home automation systems like Home Assistant, enabling a more 
 efficient and responsive home environment.
 
+Despite these advancements, a critical limitation remains: the dependence on 
+Wi-Fi for wireless data transmission. This reliance presents challenges, 
+particularly in areas with poor or no Wi-Fi connectivity, limiting the scope of 
+installation and use of such metering systems. Recognizing these issues, there 
+is a clear need for an alternative solution that offers reliability and broader 
+applicability in various environments.
+
+To address these challenges we devoloped this project with Lora(Long Range) technology.
 This project uses an ESP32 microcontroller
 and the ESP-IDF extension which is built on a real-time operating system (RTOS) to measure 
-electricity consumption through the Han/P1 port. The collected data will be displayed on the built-in Oled display and 
+electricity consumption through the Han/P1 port. The collected data will be displayed on the built-in 0.96 inch OLED Display and 
 transmitted using LoRaWAN to TTN and then to datacake.
 
 ## About the project
+This project is implemented in the C/C++ programming languages, offering a balance of performance and efficiency. The real-time capabilities provided by FreeRTOS ensure accurate and timely measurements, crucial for monitoring electricity consumption. The integration of LoRaWAN technology enables wireless communication, allowing users to remotely access and manage data through platforms like TTN and Datacake. The project showcases a comprehensive solution for smart metering, combining hardware components, software development with ESP-IDF, and wireless communication through LoRaWAN. This project empowers users to actively monitor and optimize their electricity usage in a user-friendly and efficient manner.
 
-Heltec ESP32 LoRa is a microcontroller board based on the ESP32, with built-in LoRa and 0.96 inch OLED Display. It is a perfect solution for IoT low power consumption and long range.
+The project is built for the AIDON 6000-serie electricity meter, more specifically the AIDON 6534 which is a 3-phase energy service device for households. [Smart Energy Service Devices by Aidon](https://aidon.com/solutions/smart-energy-service-devices/)
+
+
+The idea with the project is that there should be an open-source project to read data from the meter and send the data with lorawan that is reasonably easy for others to download and use, or to be inspired of for their own project. This project was a bit challening to build because it did not exist any open-source project for data-readings with LoraWAN. For a person with intrests in IoT(Internet of Things), embedded systems and software in general this project will be easy to understand and use. Hopefully it will be fairly easy for a person with less experince in this field too.
 
 To understand the data from the meter, check this: [Meter data: content of the data](https://www.kode24.no/guider/smart-meter-part-1-getting-the-meter-data/71287300). This explains the data, which is needed to understand what content of the data to read. In this project we read how much Watt's are used in real-time.
 
