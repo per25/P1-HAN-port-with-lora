@@ -37,6 +37,9 @@ The idea with the project is that there should be an open-source project to read
 
 To understand the data from the meter, check this: [Meter data: content of the data](https://www.kode24.no/guider/smart-meter-part-1-getting-the-meter-data/71287300). This explains the data, which is needed to understand what content of the data to read. In this project we read how much Watt's are used in real-time.
 
+
+Add links to `TTN` and `DATACAKE`
+
 ## Components of the project
 
 ### Hardware components
