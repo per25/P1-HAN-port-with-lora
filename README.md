@@ -43,20 +43,44 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 
 ## Components of the project
 
-### Hardware components
+### Hardware Components
 - Heltec Lora32 v2: The ESP32 microcontroller
 - breadboard
 - RJ12 cable(To the swedish electricity meter)
 - Jumper wires
 - The electricity meter works as power supply. (This project is built for the Aidon 6000-serie)
 
-### Software components
+### Software Components
 - Espressif ESP32 Development Framework: install ESP-IDF through here, [ESP-IDF for ESP32](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html)
 - ESP-IDF Extension in Visual Studio Code, ESP-IDF has many example projects.
 - ESP-IDF One of the example projects is the `UART_RX_TXtask`. Which uses freertos to create a task that reads from the UART and writes to the UART. This project uses the RX part of that.
 - ESP-IDF: Also has a project for the Oled display, this is the `i2c_oled` project which is also used and implemented in this project.
 
-- LoraWan: Device library for ESP-IDF with SX127X Lora chips: [ttn-esp32](https://github.com/manuelbl/ttn-esp32) This library enables the use of LoraWAN which is needed for data-transmission.
+- LoraWan: Library for LoraWan in ESP-IDF with SX127X Lora chips: [ttn-esp32](https://github.com/manuelbl/ttn-esp32) This library enables the use of LoraWAN which is needed for data-transmission to TTN.
 - Drivers: Might be needed to connect device to computer in Visual Studio code(test without drivers first), [Drivers](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads)
 
-## How to run the project, nessacy installations
+## Necessary Installations & How to run the project
+### Installations
+- The ESP-IDF extension in VScode(Visual Studio Code), documentation under `Software Components`.
+- This project is dependant of the `ttn-esp32` component, install the component from the `ttn-esp32` link under `Software Components`
+  - Important to Note!, In VScode you will need to set the frequency for LoraWAN, in Europe it is about 868 MHz(the frequency could easily be found online). The Freqeuncy is set in the `menuconfig`, search for Lora and set the Freqeuncy according to your region(Europe, Asia, North America, etc..)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
