@@ -39,8 +39,8 @@ To understand the data from the meter, check this: [Meter data: content of the d
 
 This project connets the device to TTN(The Things Network) and then has a webhook to Datacake to display the data, every software enthusiast has problay worked with TTN and Datacake before. We use them in this project for the simplicity, it is not too hard to connect your device.
 
-Follow this guide on how to connect the heltec to TTN, [Connect to TTN](https://docs.heltec.org/en/node/esp32/esp32_general_docs/lorawan/connect_to_gateway.html)
-Add links to `TTN` and `DATACAKE`
+Follow this guide on how to connect the heltec to TTN: [Connect to TTN](https://docs.heltec.org/en/node/esp32/esp32_general_docs/lorawan/connect_to_gateway.html)
+Follow this guide on how to create a device on Datacake and a webhook to TTN: [Get started with TTN and Datacake](https://www.youtube.com/watch?v=WGVFgYp3k3s)
 
 ## Components of the project
 
