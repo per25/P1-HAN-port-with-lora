@@ -50,6 +50,8 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 - Jumper wires
 - The electricity meter works as power supply. (This project is built for the Aidon 6000-serie)
 
+`Add img of the hardware and connedtions `
+
 ### Software Components
 - Espressif ESP32 Development Framework: install ESP-IDF through here, [ESP-IDF for ESP32](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html)
 - ESP-IDF Extension in Visual Studio Code, ESP-IDF has many example projects.
@@ -60,10 +62,15 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 - Drivers: Might be needed to connect device to computer in Visual Studio code(test without drivers first), [Drivers](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads)
 
 ## Necessary Installations & How to run the project
-### Installations
-- The ESP-IDF extension in VScode(Visual Studio Code), documentation under `Software Components`.
+- Start with the ESP-IDF extension in VScode(Visual Studio Code), documentation under `Software Components`.
+- Then clone this project to your computer and open it in VScode.
 - This project is dependant of the `ttn-esp32` component, install the component from the `ttn-esp32` link under `Software Components`
-  - Important to Note!, In VScode you will need to set the frequency for LoraWAN, in Europe it is about 868 MHz(the frequency could easily be found online). The Freqeuncy is set in the `menuconfig`, search for Lora and set the Freqeuncy according to your region(Europe, Asia, North America, etc..)
+  - Important to Note!, In VScode you will need to set the frequency for LoraWAN, in Europe it is about 868 MHz(the frequency could easily be found online). Open the command pallete and search for `SDK Configuration Editor(Menuconfig)`, select the one with ESP-IDF, then search for Lora and set the Freqeuncy according to your region(Europe, Asia, North America, etc..)
+- Then follow these guides to connect your device to TTN and create a webhook to Datacake, start with TTN: [Connect to TTN](https://docs.heltec.org/en/node/esp32/esp32_general_docs/lorawan/connect_to_gateway.html) and then [Get started with TTN and Datacake](https://www.youtube.com/watch?v=WGVFgYp3k3s)
+  - The recomendations is to start with TTN and check that the device is connected before starting with the webhook to Datacake!
+
+- Then click `Build, Flash and Monitor device` or do them step by step, personal choice!
+
 
 
 
