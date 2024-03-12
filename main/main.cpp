@@ -216,12 +216,13 @@ void oled_task(void *pvParameter)
 
                 printf("Watt value: %d\n", wattValue);
 
+                const int buffer_size = 64;
                 // Buffer size is increased to accommodate the integer value and potential text.
                 // Adjust the buffer size according to your expected maximum integer length.
-                char buffer[64]; // Ensure this is large enough to hold the combined text and number
+                char buffer[buffer_size]; // Ensure this is large enough to hold the combined text and number
 
                 // Format the new string with the wattValue included
-                snprintf(buffer, "Watt : %d", wattValue);
+                snprintf(buffer,buffer_size, "Watt : %d", wattValue);
                 
                 // Display the formatted string
                 display_oled(buffer);
@@ -274,9 +275,6 @@ void app_main(void)
     // Register callback for received messages
     ttn.onMessage(messageReceived);
 
-    //    ttn.setAdrEnabled(false);
-    //    ttn.setDataRate(kTTNDataRate_US915_SF7);
-    //    ttn.setMaxTxPower(14);
     init();
     oled_init();
 
