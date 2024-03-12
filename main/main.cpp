@@ -28,7 +28,7 @@ extern "C"
 
 #include "TheThingsNetwork.h"
 
-static const int RX_BUF_SIZE = 1024;
+static const int RX_BUF_SIZE = 1024 * 2;
 
 #define TXD_PIN (GPIO_NUM_4)
 #define RXD_PIN (GPIO_NUM_13)
@@ -131,17 +131,27 @@ void init(void)
     uart_param_config(UART_NUM_1, &uart_config);
     uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
+    // set internal pull up on RX pin
+    ESP_ERROR_CHECK(gpio_set_pull_mode(RXD_PIN, GPIO_PULLUP_ONLY));
+
     // Fix so this works with the inverter
-    // uart_set_line_inverse(UART_NUM_1, UART_SIGNAL_RXD_INV);
+    ESP_ERROR_CHECK(uart_set_line_inverse(UART_NUM_1, UART_SIGNAL_RXD_INV));
+
 }
 
 static void rx_task(void *arg)
 {
-    // static const int WATT_INDEX = 78;
     static const char *RX_TASK_TAG = "RX_TASK";
     const TickType_t xMaxBlockTime = pdMS_TO_TICKS(1000);
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t *data = (uint8_t *)malloc(RX_BUF_SIZE + 1);
+
+    if (data == NULL)
+    {
+        ESP_LOGE(RX_TASK_TAG, "Failed to allocate memory");
+        // Restart the device 
+        esp_restart();
+    }
 
     uint8_t dataToSend[4] = {0, 0, 0, 0};
     while (1)
@@ -164,9 +174,7 @@ static void rx_task(void *arg)
         {
             data[rxBytes] = 0;
             ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
-            ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
-            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[53]);
-            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[54]);
+            // ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[55]);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[56]);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[57]);
@@ -196,7 +204,6 @@ void oled_task(void *pvParameter)
 {
     while (1)
     {
-
         if (uxQueueMessagesWaiting(displayQueue) > 0)
         {
             // get the message from the queue
@@ -252,7 +259,7 @@ void app_main(void)
     loraQueue = xQueueCreate(LORA_QUEUE_LENGTH, ITEM_SIZE);
     displayQueue = xQueueCreate(DISPLAY_QUEUE_LENGTH, ITEM_SIZE);
 
-    if (loraQueue == NULL)
+    if (loraQueue == NULL || displayQueue == NULL)
     {
         printf("Error creating the queue\n");
         return;
@@ -276,11 +283,11 @@ void app_main(void)
     xTaskCreate(oled_task, "oled_task", 1024 * 2, NULL, 5, NULL);
 
     printf("Joining...\n");
+    display_oled("System started \nConnecting to TTN");
     if (ttn.join())
     {
         printf("Joined.\n");
         xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void *)0, 3, nullptr);
-        text = "Connected to TTN...";
     }
     else
     {
