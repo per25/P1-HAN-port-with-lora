@@ -66,8 +66,6 @@ static TheThingsNetwork ttn;
 
 const unsigned TX_INTERVAL = 30;
 
-static char *text = "OLED STARTED";
-
 void sendMessages(void *pvParameter)
 {
     uint8_t itemToSend[4];
@@ -212,7 +210,7 @@ void oled_task(void *pvParameter)
 
             if (xQueueReceive(displayQueue, &values, portMAX_DELAY) == pdPASS)
             {
-                int wattValue = (values[0] << 24) | (values[1] << 16) | (values[2] << 8) | values[3];
+                uint32_t wattValue = (values[0] << 24) | (values[1] << 16) | (values[2] << 8) | values[3];
 
                 printf("Watt value: %d\n", wattValue);
 
@@ -227,12 +225,9 @@ void oled_task(void *pvParameter)
                 // Display the formatted string
                 display_oled(buffer);
             }
-
-            
         }
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
-    
 }
 
 
