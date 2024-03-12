@@ -137,6 +137,57 @@ void init(void)
 
 }
 
+#define PACKAGE_LENGTH 581 // The length of the package should be 581 bytes if the format is correct
+#define START_END_BYTE 0x7E // The start and end byte of the package
+#define BYTE_53_VALUE 0xFF // The bytes befor the watt value should be 0xFF
+#define BYTE_54_VALUE 0x06 // And 0X06 for the 53ht and 54th byte
+
+/**
+ * @brief Validates the format of a package.
+ *
+ * This function checks if the given data has the correct length and contains specific byte values at certain indices.
+ *
+ * @param data Pointer to the data array.
+ * @param length Length of the data array.
+ * @return True if the package format is valid, false otherwise.
+ */
+bool validatePackageFormat(uint8_t *data, size_t length)
+{
+    // Check if the length of the package is correct
+    if (length != PACKAGE_LENGTH)
+    {
+        ESP_LOGE("RX_TASK_TAG", "Data is not correct, length is not correct");
+        return false;
+    }
+
+    // Define the checks to be performed on the package
+    struct {
+        size_t index; // The index of the byte to check
+        uint8_t expectedValue; // The expected value of the byte
+    } checks[] = {
+        {0, START_END_BYTE}, // The first byte should be START_END_BYTE
+        {PACKAGE_LENGTH - 1, START_END_BYTE}, // The last byte should be START_END_BYTE
+        {53, BYTE_53_VALUE},
+        {54, BYTE_54_VALUE}
+    };
+
+    // Loop over the checks
+    for (size_t i = 0; i < sizeof(checks) / sizeof(checks[0]); i++)
+    {
+        // If the byte at the specified index does not have the expected value
+        if (data[checks[i].index] != checks[i].expectedValue)
+        {
+            ESP_LOGE("RX_TASK_TAG", "Data is not correct, byte at index %zu is not 0x%02X", checks[i].index, checks[i].expectedValue);
+            return false;
+        }
+    }
+
+    // If all checks passed, the package format is valid
+    return true;
+}
+
+
+
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX_TASK";
@@ -162,17 +213,18 @@ static void rx_task(void *arg)
             continue;
         }
 
-        // if (rxBytes != PACKAGE_SIZE)
-        // {
-        //     ESP_LOGE(RX_TASK_TAG, "Received package size is not correct: %d", rxBytes);
-        //     continue;
-        // }
-
         if (rxBytes > 0)
         {
             data[rxBytes] = 0;
             ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
             // ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+
+            // check if the data is valid
+            if (!validatePackageFormat(data, rxBytes))
+            {
+                continue;
+            }
+
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[55]);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[56]);
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[57]);
@@ -212,7 +264,7 @@ void oled_task(void *pvParameter)
             {
                 uint32_t wattValue = (values[0] << 24) | (values[1] << 16) | (values[2] << 8) | values[3];
 
-                printf("Watt value: %d\n", wattValue);
+                printf("Watt value: %lu\n", wattValue);
 
                 const int buffer_size = 64;
                 // Buffer size is increased to accommodate the integer value and potential text.
@@ -220,8 +272,8 @@ void oled_task(void *pvParameter)
                 char buffer[buffer_size]; // Ensure this is large enough to hold the combined text and number
 
                 // Format the new string with the wattValue included
-                snprintf(buffer,buffer_size, "Watt : %d", wattValue);
-                
+                snprintf(buffer, buffer_size, "Watt : %lu", wattValue);
+
                 // Display the formatted string
                 display_oled(buffer);
             }
@@ -232,6 +284,13 @@ void oled_task(void *pvParameter)
 
 
 extern "C" void app_main(void);
+/**
+ * @brief The main function of the application.
+ *
+ * This function is the entry point of the application. It initializes various components,
+ * configures the SX127x pins, provisions the device with necessary keys, joins the network,
+ * and starts the necessary tasks for sending and receiving messages.
+ */
 void app_main(void)
 {
     esp_err_t err;
