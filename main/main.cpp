@@ -1,11 +1,4 @@
-/* UART asynchronous example, that uses separate RX and TX tasks
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 extern "C"
 {
 #include "freertos/FreeRTOS.h"
@@ -66,6 +59,16 @@ static TheThingsNetwork ttn;
 
 const unsigned TX_INTERVAL = 30;
 
+/**
+ * @brief Function to send messages from a queue at regular intervals.
+ * 
+ * This function checks the size of the queue and if it contains enough items,
+ * it retrieves the next INTERVAL_TO_SEND items from the queue, calculates the average,
+ * converts it to a 4-byte array, and transmits the message using the TTN network.
+ * The function then waits for the next transmission interval before repeating the process.
+ * 
+ * @param pvParameter A pointer to optional parameters passed to the function (not used in this case).
+ */
 void sendMessages(void *pvParameter)
 {
     uint8_t itemToSend[4];
@@ -106,6 +109,16 @@ void sendMessages(void *pvParameter)
     }
 }
 
+/**
+ * @brief Callback function for receiving messages.
+ * 
+ * This function is called when a message is received on a specific port.
+ * It prints the received message along with its length and port number.
+ * 
+ * @param message Pointer to the received message.
+ * @param length Length of the received message.
+ * @param port Port number on which the message was received.
+ */
 void messageReceived(const uint8_t *message, size_t length, ttn_port_t port)
 {
     printf("Message of %d bytes received on port %d:", length, port);
@@ -114,6 +127,13 @@ void messageReceived(const uint8_t *message, size_t length, ttn_port_t port)
     printf("\n");
 }
 
+/**
+ * @brief Initializes the UART communication and sets the configuration parameters.
+ * 
+ * This function initializes the UART communication by configuring the UART parameters such as baud rate, data bits, parity, stop bits, and flow control.
+ * It also sets the UART pins for transmission and reception and enables the internal pull-up on the RX pin.
+ * Additionally, it fixes the inverted signal issue for the UART receiver.
+ */
 void init(void)
 {
     const uart_config_t uart_config = {
@@ -134,7 +154,6 @@ void init(void)
 
     // Fix so this works with the inverter
     ESP_ERROR_CHECK(uart_set_line_inverse(UART_NUM_1, UART_SIGNAL_RXD_INV));
-
 }
 
 #include <ctime>
@@ -143,6 +162,9 @@ void init(void)
 #define STR_LEN 0x0C
 
 struct PackageData
+/**
+ * @brief Struct representing a date and time.
+ */
 {
     uint16_t year;
     uint8_t month;
@@ -157,15 +179,16 @@ struct PackageData
 };
 
 /**
- * @brief Validates the time data and adjusts the average calculation if necessary.
- *
- * This function checks if the time stamp in the given data is in the specified time to see if any data is missing.
- * Should be called after the validatePackageFormat function, to avoid unnecessary calculations and array out of bounds errors.
- *
- * @param data Pointer to the data array.
- * @param packageData Reference to the PackageData struct to store the parsed time data.
+ * @brief Extracts time data from a byte array and populates a PackageData structure.
+ * 
+ * This function assumes that the byte array contains time data starting at the specified index.
+ * The time data is expected to be in a specific format, with each component stored in consecutive bytes.
+ * The extracted time data is then stored in the provided PackageData structure.
+ * 
+ * @param data The byte array containing the time data.
+ * @param packageData The PackageData structure to populate with the extracted time data.
  */
-void validateTime(uint8_t *data, PackageData &packageData)
+void getTimeData(uint8_t *data, PackageData &packageData)
 {
     if (data[TIME_START_INDEX] != STR_LEN)
     {
@@ -208,7 +231,7 @@ void validateTime(uint8_t *data, PackageData &packageData)
  */
 int calculateTimeDifference(const PackageData &previousPackageData, const PackageData &currentPackageData)
 {
-    struct tm previousTime = {0};
+    struct tm previousTime = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     previousTime.tm_year = previousPackageData.year - 1900;
     previousTime.tm_mon = previousPackageData.month - 1;
     previousTime.tm_mday = previousPackageData.dayOfMonth;
@@ -216,7 +239,7 @@ int calculateTimeDifference(const PackageData &previousPackageData, const Packag
     previousTime.tm_min = previousPackageData.minute;
     previousTime.tm_sec = previousPackageData.second;
 
-    struct tm currentTime = {0};
+    struct tm currentTime = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     currentTime.tm_year = currentPackageData.year - 1900;
     currentTime.tm_mon = currentPackageData.month - 1;
     currentTime.tm_mday = currentPackageData.dayOfMonth;
@@ -279,6 +302,15 @@ bool validatePackageFormat(uint8_t *data, size_t length)
     return true;
 }
 
+/**
+ * @brief Task for receiving data from UART and processing it.
+ * 
+ * This task reads data from UART and performs various operations on the received data.
+ * It validates the package format, extracts time data, calculates time difference,
+ * and sends the processed data to the loraQueue and displayQueue.
+ * 
+ * @param arg Pointer to the task argument (not used in this task).
+ */
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX_TASK";
@@ -286,7 +318,7 @@ static void rx_task(void *arg)
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t *data = (uint8_t *)malloc(RX_BUF_SIZE + 1);
 
-    PackageData previousPackageData = {0};
+    PackageData previousPackageData = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     if (data == NULL)
     {
@@ -319,8 +351,8 @@ static void rx_task(void *arg)
             }
 
             // get the time data from the package
-            PackageData currentPackageData = {0};
-            validateTime(data, currentPackageData);
+            PackageData currentPackageData = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            getTimeData(data, currentPackageData);
 
             // If the time data is valid, calculate the time difference
             if (currentPackageData.year != 0)
@@ -364,6 +396,15 @@ static void rx_task(void *arg)
     free(data);
 }
 
+/**
+ * @brief Task that handles OLED display updates.
+ * 
+ * This task continuously checks for messages in the displayQueue and updates the OLED display accordingly.
+ * It retrieves the watt value from the message, formats it into a string, and displays it on the OLED.
+ * The task delays for 5 seconds between each update.
+ * 
+ * @param pvParameter Pointer to task parameters (not used in this task).
+ */
 void oled_task(void *pvParameter)
 {
     while (1)
