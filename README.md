@@ -76,7 +76,8 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 
 ### Payloads on TTN and Datacake
 #### Payload for TTN
-`function decodeUplink(input) {
+```Javascript
+function decodeUplink(input) {
   // Check if input.bytes has at least 4 bytes
   if (input.bytes.length < 4) {
     return {
@@ -100,10 +101,12 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
     warnings: [],
     errors: []
   };
-} `
+}
+```
 
 #### Payload for Datacake
-`function Decoder(payload, port) {
+``` Javascript
+function Decoder(payload, port) {
     var value = {};
     
     try {
@@ -116,7 +119,8 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
     }
 
     return value;
-}`
+}
+```
 
 
 
