@@ -68,13 +68,55 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
   - Important to Note!, In VScode you will need to set the frequency for LoraWAN, in Europe it is about 868 MHz(the frequency could easily be found online). Open the command pallete and search for `SDK Configuration Editor(Menuconfig)`, select the one with ESP-IDF, then search for Lora and set the Freqeuncy according to your region(Europe, Asia, North America, etc..)
 - Then follow these guides to connect your device to TTN and create a webhook to Datacake, start with TTN: [Connect to TTN](https://docs.heltec.org/en/node/esp32/esp32_general_docs/lorawan/connect_to_gateway.html) and then [Get started with TTN and Datacake](https://www.youtube.com/watch?v=WGVFgYp3k3s)
   - The recomendations is to start with TTN and check that the device is connected before starting with the webhook to Datacake!
+  - Also remember fic the Payload formatters on TTN and Datcake, they are show below under `Payloads on TTN and Datacake`
 
 - Then click `Build, Flash and Monitor device` or do them step by step, personal choice!
 
 
 
+### Payloads on TTN and Datacake
+#### Payload for TTN
+`function decodeUplink(input) {
+  // Check if input.bytes has at least 4 bytes
+  if (input.bytes.length < 4) {
+    return {
+      data: {},
+      warnings: [],
+      errors: ["Input does not contain enough bytes"]
+    };
+  }
 
+  // Convert the first 4 bytes of the array to a 32-bit unsigned integer
+  var uint32 = (input.bytes[0] << 24) | (input.bytes[1] << 16) | (input.bytes[2] << 8) | input.bytes[3];
 
+  // Ensure the number is treated as unsigned
+  var decimalNumber = uint32 >>> 0;
+
+  return {
+    data: {
+      // Return the decimal number
+      value: decimalNumber
+    },
+    warnings: [],
+    errors: []
+  };
+} `
+
+#### Payload for Datacake
+`function Decoder(payload, port) {
+    var value = {};
+    
+    try {
+        console.log(payload[3]);
+        value.WATT = payload[3];
+
+    } catch (e) {
+        // Handle any decoding errors
+        console.error("Error decoding payload:", e);
+    }
+
+    return value;
+}`
 
 
 
