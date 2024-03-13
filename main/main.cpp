@@ -137,6 +137,99 @@ void init(void)
 
 }
 
+#include <ctime>
+
+#define TIME_START_INDEX 31
+#define STR_LEN 0x0C
+
+struct PackageData
+{
+    uint16_t year;
+    uint8_t month;
+    uint8_t dayOfMonth;
+    uint8_t dayOfWeek;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+    uint8_t hundredth;
+    uint8_t deviation;
+    uint8_t timeStatus;
+};
+
+/**
+ * @brief Validates the time data and adjusts the average calculation if necessary.
+ *
+ * This function checks if the time stamp in the given data is in the specified time to see if any data is missing.
+ * Should be called after the validatePackageFormat function, to avoid unnecessary calculations and array out of bounds errors.
+ *
+ * @param data Pointer to the data array.
+ * @param packageData Reference to the PackageData struct to store the parsed time data.
+ */
+void validateTime(uint8_t *data, PackageData &packageData)
+{
+    if (data[TIME_START_INDEX] != STR_LEN)
+    {
+        printf("STR LEN is not correct, length is not correct\n");
+        return;
+    }
+
+    packageData.year = (data[TIME_START_INDEX + 1] << 8) | data[TIME_START_INDEX + 2];
+    packageData.month = data[TIME_START_INDEX + 3];
+    packageData.dayOfMonth = data[TIME_START_INDEX + 4];
+    packageData.dayOfWeek = data[TIME_START_INDEX + 5];
+    packageData.hour = data[TIME_START_INDEX + 6];
+    packageData.minute = data[TIME_START_INDEX + 7];
+    packageData.second = data[TIME_START_INDEX + 8];
+    packageData.hundredth = data[TIME_START_INDEX + 9]; // Not used ?
+    packageData.deviation = data[TIME_START_INDEX + 10]; // Not used ?
+    packageData.timeStatus = data[TIME_START_INDEX + 11]; // Should be the summer or winter time
+
+    // Log the data to the console
+    printf("Year: %d\n", packageData.year);
+    printf("Month: %d\n", packageData.month);
+    printf("Day of month: %d\n", packageData.dayOfMonth);
+    printf("Day of week: %d\n", packageData.dayOfWeek);
+    printf("Hour: %d\n", packageData.hour);
+    printf("Minute: %d\n", packageData.minute);
+    printf("Second: %d\n", packageData.second);
+    printf("Hundredth: %d\n", packageData.hundredth);
+    printf("Deviation: %d\n", packageData.deviation);
+    printf("Time status: %d\n", packageData.timeStatus);
+}
+
+/**
+ * @brief Checks the time difference between two packages.
+ *
+ * This function calculates the time difference in seconds between two packages based on their time stamps.
+ *
+ * @param previousPackageData Reference to the PackageData struct of the previous package.
+ * @param currentPackageData Reference to the PackageData struct of the current package.
+ * @return The time difference in seconds.
+ */
+int calculateTimeDifference(const PackageData &previousPackageData, const PackageData &currentPackageData)
+{
+    struct tm previousTime = {0};
+    previousTime.tm_year = previousPackageData.year - 1900;
+    previousTime.tm_mon = previousPackageData.month - 1;
+    previousTime.tm_mday = previousPackageData.dayOfMonth;
+    previousTime.tm_hour = previousPackageData.hour;
+    previousTime.tm_min = previousPackageData.minute;
+    previousTime.tm_sec = previousPackageData.second;
+
+    struct tm currentTime = {0};
+    currentTime.tm_year = currentPackageData.year - 1900;
+    currentTime.tm_mon = currentPackageData.month - 1;
+    currentTime.tm_mday = currentPackageData.dayOfMonth;
+    currentTime.tm_hour = currentPackageData.hour;
+    currentTime.tm_min = currentPackageData.minute;
+    currentTime.tm_sec = currentPackageData.second;
+
+    time_t previousTimestamp = mktime(&previousTime);
+    time_t currentTimestamp = mktime(&currentTime);
+
+    return difftime(currentTimestamp, previousTimestamp);
+}
+
 #define PACKAGE_LENGTH 581 // The length of the package should be 581 bytes if the format is correct
 #define START_END_BYTE 0x7E // The start and end byte of the package
 #define BYTE_53_VALUE 0xFF // The bytes befor the watt value should be 0xFF
@@ -186,14 +279,14 @@ bool validatePackageFormat(uint8_t *data, size_t length)
     return true;
 }
 
-
-
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX_TASK";
     const TickType_t xMaxBlockTime = pdMS_TO_TICKS(1000);
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t *data = (uint8_t *)malloc(RX_BUF_SIZE + 1);
+
+    PackageData previousPackageData = {0};
 
     if (data == NULL)
     {
@@ -223,6 +316,27 @@ static void rx_task(void *arg)
             if (!validatePackageFormat(data, rxBytes))
             {
                 continue;
+            }
+
+            // get the time data from the package
+            PackageData currentPackageData = {0};
+            validateTime(data, currentPackageData);
+
+            // If the time data is valid, calculate the time difference
+            if (currentPackageData.year != 0)
+            {
+                int timeDifference = calculateTimeDifference(previousPackageData, currentPackageData);
+                printf("Time difference: %d\n", timeDifference);
+
+                // If the time difference is not 15 seconds, adjust the average calculation
+                if (timeDifference > 15)
+                {
+                    // TODO Adjust the average calculation
+                    printf("Time difference is not 15 seconds\n");
+                }
+
+                // Update the previous package data
+                previousPackageData = currentPackageData;
             }
 
             ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[55]);
