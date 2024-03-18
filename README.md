@@ -31,7 +31,7 @@ transmitted using LoRaWAN to TTN and then to datacake.
 This project is implemented in the C/C++ programming languages, offering a balance of performance and efficiency. The real-time capabilities provided by FreeRTOS ensure accurate and timely measurements, crucial for monitoring electricity consumption. The integration of LoRaWAN technology enables wireless communication, allowing users to remotely access and manage data through platforms like TTN and Datacake. The project showcases a comprehensive solution for smart metering, combining hardware components, software development with ESP-IDF, and wireless communication through LoRaWAN. This project empowers users to actively monitor and optimize their electricity usage in a user-friendly and efficient manner.
 
 The project is built for the AIDON 6000-serie electricity meter, more specifically the AIDON 6534 which is a 3-phase energy service device for households. Link to AIDON meters: [Smart Energy Service Devices by Aidon](https://aidon.com/solutions/smart-energy-service-devices/)
-
+(Note!, it should work for other meters with the same specifications. It is not tested woth other meters so we can not guarantee it!)
 
 The idea with the project is that there should be an open-source project to read data from the meter and send the data with lorawan that is reasonably easy for others to download and use, or to be inspired of for their own project. This project was a bit challening to build because it did not exist any open-source project for data-readings with LoraWAN. For a person with intrests in IoT(Internet of Things), embedded systems and software in general this project will be easy to understand and use. Hopefully it will be fairly easy for a person with less experince in this field too.
 
@@ -46,8 +46,9 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 ### Hardware Components
 - Heltec Lora32 v2: The ESP32 microcontroller
 - breadboard
-- RJ12 cable(To the swedish electricity meter)
+- 6 pin RJ12 cable(To the swedish electricity meter)
 - Jumper wires
+- Resistor
 - The electricity meter works as power supply. (This project is built for the Aidon 6000-serie)
 
 `Add img of the hardware and connedtions `
