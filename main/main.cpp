@@ -45,63 +45,57 @@ const char *appKey = "CE03DB00D327F40F148E8D07FFC4CA0D";
 #define TTN_PIN_DIO0 26
 #define TTN_PIN_DIO1 35
 
-#define INTERVAL_TO_SEND 6 // 30
+#define INTERVAL_TO_SEND 60 * 5 // The time in seconds to wait before sending the average value
 #define DISPLAY_QUEUE_LENGTH 4
-#define LORA_QUEUE_LENGTH INTERVAL_TO_SEND + 2
-#define ITEM_SIZE sizeof(int[4])
+#define LORA_QUEUE_LENGTH 5 // The length of the queue for the lora messages
 
-#define PACKAGE_SIZE 581
+#define PACKAGE_SIZE 581 // the correct size of the package
 
 QueueHandle_t loraQueue = NULL;
 QueueHandle_t displayQueue = NULL;
 
-static TheThingsNetwork ttn;
+static TheThingsNetwork ttn; // TheThingsNetwork instance
 
-const unsigned TX_INTERVAL = 30;
+const unsigned TX_INTERVAL = 30; // The sleep interval for the loRaWAN task
 
 /**
  * @brief Function to send messages from a queue at regular intervals.
- * 
+ *
  * This function checks the size of the queue and if it contains enough items,
  * it retrieves the next INTERVAL_TO_SEND items from the queue, calculates the average,
  * converts it to a 4-byte array, and transmits the message using the TTN network.
  * The function then waits for the next transmission interval before repeating the process.
- * 
+ *
  * @param pvParameter A pointer to optional parameters passed to the function (not used in this case).
  */
 void sendMessages(void *pvParameter)
 {
     uint8_t itemToSend[4];
-    uint32_t average = 0;
 
     while (1)
     {
-        // check the queue size queue
-        if (uxQueueMessagesWaiting(loraQueue) >= INTERVAL_TO_SEND)
+        // Check if there a average in the queue to send to the server
+        if (uxQueueMessagesWaiting(loraQueue) > 0)
         {
-            // Get the next INTERVAL_TO_SEND items from the queue
-
-            for (int i = 0; i < INTERVAL_TO_SEND; i++)
-            {
-                if (xQueueReceive(loraQueue, &itemToSend, portMAX_DELAY) == pdPASS)
-                {
-                    // convert the 4 bytes to a int and add it to the average
-                    average += (itemToSend[0] << 24) | (itemToSend[1] << 16) | (itemToSend[2] << 8) | itemToSend[3];
-                }
+            uint32_t value;
+            if (xQueueReceive(loraQueue, &value, 0) != pdTRUE)
+            { 
+                printf("Could not receive from the loRa queue\n");
+                continue;
             }
 
-            float newAverage = average / INTERVAL_TO_SEND;
-
-            // convert the new average to a 4 byte array
-            average = (int)newAverage;
-
-            printf("Average: %lu\n", average);
-            itemToSend[0] = (average >> 24) & 0xFF;
-            itemToSend[1] = (average >> 16) & 0xFF;
-            itemToSend[2] = (average >> 8) & 0xFF;
-            itemToSend[3] = average & 0xFF;
+            printf("Average: %lu\n", value);
+            // Convert the average to a 4-byte array
+            itemToSend[0] = (value >> 24) & 0xFF;
+            itemToSend[1] = (value >> 16) & 0xFF;
+            itemToSend[2] = (value >> 8) & 0xFF;
+            itemToSend[3] = value & 0xFF;
 
             printf("Sending message...\n");
+
+            // Print the item to send
+            printf("Item to send: %02x %02x %02x %02x\n", itemToSend[0], itemToSend[1], itemToSend[2], itemToSend[3]); 
+
             TTNResponseCode res = ttn.transmitMessage(itemToSend, sizeof(itemToSend));
             printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
         }
@@ -111,10 +105,10 @@ void sendMessages(void *pvParameter)
 
 /**
  * @brief Callback function for receiving messages.
- * 
+ *
  * This function is called when a message is received on a specific port.
  * It prints the received message along with its length and port number.
- * 
+ *
  * @param message Pointer to the received message.
  * @param length Length of the received message.
  * @param port Port number on which the message was received.
@@ -129,7 +123,7 @@ void messageReceived(const uint8_t *message, size_t length, ttn_port_t port)
 
 /**
  * @brief Initializes the UART communication and sets the configuration parameters.
- * 
+ *
  * This function initializes the UART communication by configuring the UART parameters such as baud rate, data bits, parity, stop bits, and flow control.
  * It also sets the UART pins for transmission and reception and enables the internal pull-up on the RX pin.
  * Additionally, it fixes the inverted signal issue for the UART receiver.
@@ -180,11 +174,11 @@ struct PackageData
 
 /**
  * @brief Extracts time data from a byte array and populates a PackageData structure.
- * 
+ *
  * This function assumes that the byte array contains time data starting at the specified index.
  * The time data is expected to be in a specific format, with each component stored in consecutive bytes.
  * The extracted time data is then stored in the provided PackageData structure.
- * 
+ *
  * @param data The byte array containing the time data.
  * @param packageData The PackageData structure to populate with the extracted time data.
  */
@@ -203,8 +197,8 @@ void getTimeData(uint8_t *data, PackageData &packageData)
     packageData.hour = data[TIME_START_INDEX + 6];
     packageData.minute = data[TIME_START_INDEX + 7];
     packageData.second = data[TIME_START_INDEX + 8];
-    packageData.hundredth = data[TIME_START_INDEX + 9]; // Not used ?
-    packageData.deviation = data[TIME_START_INDEX + 10]; // Not used ?
+    packageData.hundredth = data[TIME_START_INDEX + 9];   // Not used ?
+    packageData.deviation = data[TIME_START_INDEX + 10];  // Not used ?
     packageData.timeStatus = data[TIME_START_INDEX + 11]; // Should be the summer or winter time
 
     // Log the data to the console
@@ -253,10 +247,10 @@ int calculateTimeDifference(const PackageData &previousPackageData, const Packag
     return difftime(currentTimestamp, previousTimestamp);
 }
 
-#define PACKAGE_LENGTH 581 // The length of the package should be 581 bytes if the format is correct
+#define PACKAGE_LENGTH 581  // The length of the package should be 581 bytes if the format is correct
 #define START_END_BYTE 0x7E // The start and end byte of the package
-#define BYTE_53_VALUE 0xFF // The bytes befor the watt value should be 0xFF
-#define BYTE_54_VALUE 0x06 // And 0X06 for the 53ht and 54th byte
+#define BYTE_53_VALUE 0xFF  // The bytes befor the watt value should be 0xFF
+#define BYTE_54_VALUE 0x06  // And 0X06 for the 53ht and 54th byte
 
 /**
  * @brief Validates the format of a package.
@@ -277,15 +271,15 @@ bool validatePackageFormat(uint8_t *data, size_t length)
     }
 
     // Define the checks to be performed on the package
-    struct {
-        size_t index; // The index of the byte to check
+    struct
+    {
+        size_t index;          // The index of the byte to check
         uint8_t expectedValue; // The expected value of the byte
     } checks[] = {
-        {0, START_END_BYTE}, // The first byte should be START_END_BYTE
+        {0, START_END_BYTE},                  // The first byte should be START_END_BYTE
         {PACKAGE_LENGTH - 1, START_END_BYTE}, // The last byte should be START_END_BYTE
         {53, BYTE_53_VALUE},
-        {54, BYTE_54_VALUE}
-    };
+        {54, BYTE_54_VALUE}};
 
     // Loop over the checks
     for (size_t i = 0; i < sizeof(checks) / sizeof(checks[0]); i++)
@@ -304,30 +298,54 @@ bool validatePackageFormat(uint8_t *data, size_t length)
 
 /**
  * @brief Task for receiving data from UART and processing it.
- * 
+ *
  * This task reads data from UART and performs various operations on the received data.
  * It validates the package format, extracts time data, calculates time difference,
  * and sends the processed data to the loraQueue and displayQueue.
- * 
+ *
  * @param arg Pointer to the task argument (not used in this task).
  */
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX_TASK";
+
+    // Define the maximum block time for the FreeRTOS queue operations
     const TickType_t xMaxBlockTime = pdMS_TO_TICKS(1000);
+
+    // Set the log level for the RX_TASK_TAG to INFO
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
+
+    // Allocate memory for the data buffer
     uint8_t *data = (uint8_t *)malloc(RX_BUF_SIZE + 1);
 
+    // The previous package data to calculate the time difference
     PackageData previousPackageData = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    // Used to get the time when the las package was sent to the server
+    PackageData previousSendTime = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    /**
+     * @brief Size of the buffer for watt data.
+     * 
+     * The wattBufferSize variable represents the size of the buffer used to store watt data.
+     * It is calculated based on the INTERVAL_TO_SEND constant and the size of the uint32_t data type.
+     * The buffer size is determined by multiplying the interval by 0.1, converting it to bytes, and adding 10 bytes for additional data.
+     * 
+     * @see INTERVAL_TO_SEND
+     */
+    const int wattBufferSize = (INTERVAL_TO_SEND / 10) * sizeof(uint32_t) + 10;
+    // Allocate memory for uint32_t array to store the watt data
+    uint32_t *wattData = (uint32_t *)malloc(wattBufferSize);
+
+    // The current index for the watt data
+    int currentIndex = 0;
 
     if (data == NULL)
     {
         ESP_LOGE(RX_TASK_TAG, "Failed to allocate memory");
-        // Restart the device 
         esp_restart();
     }
 
-    uint8_t dataToSend[4] = {0, 0, 0, 0};
     while (1)
     {
         const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
@@ -361,33 +379,62 @@ static void rx_task(void *arg)
                 printf("Time difference: %d\n", timeDifference);
 
                 // If the time difference is not 15 seconds, adjust the average calculation
+                // The value should be 10 if it larger it means a package was lost
+                // 15 is chosen to have a bit of margin
                 if (timeDifference > 15)
                 {
                     // TODO Adjust the average calculation
-                    printf("Time difference is not 15 seconds\n");
+                    printf("Time difference is more than 15 seconds\n");
                 }
 
                 // Update the previous package data
                 previousPackageData = currentPackageData;
             }
+            // Write the raw bytes from the package to the console
+            printf("Watt: %d %d %d %d\n", data[55], data[56], data[57], data[58]);
 
-            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[55]);
-            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[56]);
-            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[57]);
-            ESP_LOGI(RX_TASK_TAG, "Watt: %d", data[58]);
-            dataToSend[0] = data[55];
-            dataToSend[1] = data[56];
-            dataToSend[2] = data[57];
-            dataToSend[3] = data[58];
+            // Get the watt value from the package
+            uint32_t currentWatt = (data[55] << 24) | (data[56] << 16) | (data[57] << 8) | data[58];
 
-            printf("Sending array: [%d, %d, %d, %d]\n", dataToSend[0], dataToSend[1], dataToSend[2], dataToSend[3]);
-
-            if (xQueueSend(loraQueue, &dataToSend, xMaxBlockTime) != pdPASS)
+            // Add the watt value to the array
+            // Check if the current index is at the end of the array
+            if (currentIndex == wattBufferSize)
             {
-                ESP_LOGE(RX_TASK_TAG, "Could not send to the queue");
+                // esp log the error and reset the index
+                ESP_LOGE(RX_TASK_TAG, "Watt buffer is full, resetting the index");
+                currentIndex = 0;
+                // Reset the array
+                memset(wattData, 0, wattBufferSize);
             }
 
-            if (xQueueSend(displayQueue, &dataToSend, xMaxBlockTime) != pdPASS)
+            wattData[currentIndex] = currentWatt;
+            currentIndex++;
+
+            // Check if the it have passed more than 60 seconds since the last time the average was sent to the server
+            if (calculateTimeDifference(previousSendTime, currentPackageData) > INTERVAL_TO_SEND)
+            {
+                // Calculate the average of the watt values
+                uint32_t average = 0;
+                for (int i = 0; i < currentIndex; i++)
+                {
+                    average += wattData[i];
+                }
+                average /= currentIndex;
+
+                // Reset the index and the array
+                currentIndex = 0;
+                memset(wattData, 0, wattBufferSize);
+
+                // Send the average to the loraQueue
+                if (xQueueSend(loraQueue, &average, xMaxBlockTime) != pdPASS)
+                {
+                    ESP_LOGE(RX_TASK_TAG, "Could not send to the queue");
+                }
+                // Update the previous send time
+                previousSendTime = currentPackageData;
+            }
+
+            if (xQueueSend(displayQueue, &currentWatt, xMaxBlockTime) != pdPASS)
             {
                 ESP_LOGE(RX_TASK_TAG, "Could not send to the queue");
             }
@@ -398,11 +445,11 @@ static void rx_task(void *arg)
 
 /**
  * @brief Task that handles OLED display updates.
- * 
+ *
  * This task continuously checks for messages in the displayQueue and updates the OLED display accordingly.
  * It retrieves the watt value from the message, formats it into a string, and displays it on the OLED.
  * The task delays for 5 seconds between each update.
- * 
+ *
  * @param pvParameter Pointer to task parameters (not used in this task).
  */
 void oled_task(void *pvParameter)
@@ -411,15 +458,13 @@ void oled_task(void *pvParameter)
     {
         if (uxQueueMessagesWaiting(displayQueue) > 0)
         {
-            // get the message from the queue
-
-            uint8_t values[4];
+            uint32_t values[4];
 
             if (xQueueReceive(displayQueue, &values, portMAX_DELAY) == pdPASS)
             {
-                uint32_t wattValue = (values[0] << 24) | (values[1] << 16) | (values[2] << 8) | values[3];
+                uint32_t wattValue = values[0];
 
-                printf("Watt value: %lu\n", wattValue);
+                printf("Watt value from the oled task : %lu\n", wattValue);
 
                 const int buffer_size = 64;
                 // Buffer size is increased to accommodate the integer value and potential text.
@@ -436,7 +481,6 @@ void oled_task(void *pvParameter)
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
-
 
 extern "C" void app_main(void);
 /**
@@ -466,8 +510,8 @@ void app_main(void)
     err = spi_bus_initialize(TTN_SPI_HOST, &spi_bus_config, TTN_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);
 
-    loraQueue = xQueueCreate(LORA_QUEUE_LENGTH, ITEM_SIZE);
-    displayQueue = xQueueCreate(DISPLAY_QUEUE_LENGTH, ITEM_SIZE);
+    loraQueue = xQueueCreate(LORA_QUEUE_LENGTH, sizeof(uint32_t));
+    displayQueue = xQueueCreate(DISPLAY_QUEUE_LENGTH, sizeof(uint32_t));
 
     if (loraQueue == NULL || displayQueue == NULL)
     {
@@ -494,12 +538,12 @@ void app_main(void)
     if (ttn.join())
     {
         printf("Joined.\n");
-        xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void *)0, 3, nullptr);
+        xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void *)0, configMAX_PRIORITIES, nullptr);
     }
     else
     {
         printf("Join failed. Goodbye\n");
     }
     printf("Starting the rx tasks\n");
-    xTaskCreate(rx_task, "uart_rx_task", 1024 * 2, NULL, configMAX_PRIORITIES, NULL);
+    xTaskCreate(rx_task, "uart_rx_task", 1024 * 4, NULL, configMAX_PRIORITIES, NULL);
 }
