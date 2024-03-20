@@ -55,7 +55,7 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 
 ### Software Components
 - Espressif ESP32 Development Framework: install ESP-IDF through here, [ESP-IDF for ESP32](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html)
-- ESP-IDF Extension in Visual Studio Code, ESP-IDF has many example projects.
+- This project uses the ESP-IDF Extension in Visual Studio Code, ESP-IDF has many example projects.
 - ESP-IDF One of the example projects is the `UART_RX_TXtask`. Which uses freertos to create a task that reads from the UART and writes to the UART. This project uses the RX part of that.
 - ESP-IDF: Also has a project for the Oled display, this is the `i2c_oled` project which is also used and implemented in this project.
 
