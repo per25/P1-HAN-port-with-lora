@@ -111,8 +111,12 @@ function Decoder(payload, port) {
     var value = {};
     
     try {
-        console.log(payload[3]);
-        value.WATT = payload[3];
+        
+        var uint32 = (payload[0] << 24) | (payload[1] << 16) | (payload[2] << 8) | payload[3];
+        var decimalNumber = uint32 >>> 0;
+        
+        console.log(decimalNumber);
+        value.WATT = decimalNumber
 
     } catch (e) {
         // Handle any decoding errors
