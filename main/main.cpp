@@ -27,11 +27,11 @@ static const int RX_BUF_SIZE = 1024 * 2;
 #define RXD_PIN (GPIO_NUM_13)
 
 // AppEUI (sometimes called JoinEUI)
-const char *appEui = "0000000000000000";
+const char *appEui = "";
 // DevEUI
-const char *devEui = "70B3D57ED0064BB3";
+const char *devEui = "";
 // AppKey
-const char *appKey = "CE03DB00D327F40F148E8D07FFC4CA0D";
+const char *appKey = "";
 
 // Pins and other resources
 #define TTN_SPI_HOST SPI2_HOST
