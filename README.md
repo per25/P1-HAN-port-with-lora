@@ -48,10 +48,12 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 - breadboard
 - 6 pin RJ12 cable(To the swedish electricity meter)
 - Jumper wires
-- Resistor
+- Resistor 10 000 Ohm
 - The electricity meter works as power supply. (This project is built for the Aidon 6000-serie)
 
-`Add img of the hardware and connedtions `
+#### Hardware Connection
+![Wire connection](wirediagram.png)
+
 
 ### Software Components
 - Espressif ESP32 Development Framework: install ESP-IDF through here, [ESP-IDF for ESP32](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html)
