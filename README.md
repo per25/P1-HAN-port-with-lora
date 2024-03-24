@@ -52,7 +52,7 @@ This project connets the device to TTN(The Things Network) and then has a webhoo
 - The electricity meter works as power supply. (This project is built for the Aidon 6000-serie)
 
 #### Hardware Connection
-![Wire connection](wirediagram.png)
+![Wire connection](wireingdiagram.png)
 
 
 ### Software Components
